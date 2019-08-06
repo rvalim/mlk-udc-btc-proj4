@@ -1,13 +1,18 @@
 import FlightSuretyApp from '../../build/contracts/FlightSuretyApp.json';
 import Config from './config.json';
 import Web3 from 'web3';
+const TruffleContract = require("truffle-contract");
 
 export default class Contract {
     constructor(network, callback) {
 
-        let config = Config[network];
-        this.web3 = new Web3(new Web3.providers.HttpProvider(config.url));
-        this.flightSuretyApp = new this.web3.eth.Contract(FlightSuretyApp.abi, config.appAddress);
+        this.config = Config[network];
+        // let web3Provider = new Web3.providers.HttpProvider(config.url);
+        let web3Provider = new Web3.providers.WebsocketProvider(this.config.url.replace('http', 'ws'));
+        this.web3 = new Web3(web3Provider);
+        // this.flightSuretyApp = new this.web3.eth.Contract(FlightSuretyApp.abi, config.appAddress);
+        this.flightSuretyApp = TruffleContract(FlightSuretyApp);
+        this.flightSuretyApp.setProvider(web3Provider);
         this.initialize(callback);
         this.owner = null;
         this.airlines = [];
@@ -16,11 +21,11 @@ export default class Contract {
 
     initialize(callback) {
         this.web3.eth.getAccounts((error, accts) => {
-           
+
             this.owner = accts[0];
 
             let counter = 1;
-            
+
             while(this.airlines.length < 5) {
                 this.airlines.push(accts[counter++]);
             }
@@ -33,24 +38,86 @@ export default class Contract {
         });
     }
 
-    isOperational(callback) {
-       let self = this;
-       self.flightSuretyApp.methods
-            .isOperational()
-            .call({ from: self.owner}, callback);
+    async getContractInstance(){
+        return await this.flightSuretyApp.at(this.config.appAddress);
     }
 
-    fetchFlightStatus(flight, callback) {
+    async getOperationalStatus(request) {
         let self = this;
-        let payload = {
-            airline: self.airlines[0],
-            flight: flight,
-            timestamp: Math.floor(Date.now() / 1000)
-        } 
-        self.flightSuretyApp.methods
-            .fetchFlightStatus(payload.airline, payload.flight, payload.timestamp)
-            .send({ from: self.owner}, (error, result) => {
-                callback(error, payload);
-            });
+        let caller = request.from || self.owner;
+        let instance = await this.getContractInstance();
+        return await instance.isOperational({from: caller});
+    }
+
+    async fetchFlightStatus(request) {
+        console.log('fetchFlightStatus')
+        let caller = request.from || this.owner;
+        let instance = await this.getContractInstance();
+        instance.OracleRequest().on("data", async event => {
+            console.log(event.returnValues);
+        });
+        instance.FlightStatusInfo().on("data", async event => {
+            console.log(event.returnValues);
+            return await event.returnValues;
+        });
+        await instance.fetchFlightStatus(request.airline, request.flight, request.departure, {from: caller});
+    }
+    async registerAirline(request) {
+        let caller = request.from;
+        console.log(caller)
+        let instance = await this.getContractInstance();
+        return await instance.registerAirline(request.airline, {from: caller});
+    }
+    async getFlightId(request){
+        let caller = request.airlineAddress;
+        let instance = await this.getContractInstance();
+        return await instance.getFlightId(request.flight, request.departure, caller, {from: caller} );
+    }
+
+    async registerFlight(request){
+        let caller = request.from || this.owner;
+        let instance = await this.getContractInstance();
+        return await instance.registerFlight(request.flight, request.departure, {from: caller} );
+    }
+
+    async getFlight(request){
+        let caller = request.from || this.owner;
+        let instance = await this.getContractInstance();
+        let result = await instance.getFlight(request.flight, {from: caller});
+        console.log(result);
+        return result;
+    }
+
+    async buyInsurance(request){
+        console.log(request);
+        let caller = request.from || this.owner;
+        let instance = await this.getContractInstance();
+        let paid = this.web3.utils.toWei(request.paid.toString(), "ether");
+        let gasEstimateUnits = await instance.buyInsurance.estimateGas(request.flight, {from: caller, value: paid});
+        console.log(gasEstimateUnits);
+        console.log(paid);
+        return await instance.buyInsurance(request.flight, {from: caller, value: paid});
+    }
+
+    async getInsurance(request){
+        console.log(request);
+        let instance = await this.getContractInstance();
+        let result = await instance.getInsurance(request.id);
+        console.log(result);
+        return result;
+    }
+
+    async getFundBalance(request){
+        let instance = await this.getContractInstance();
+        let result = await instance.getFundBalance(request.address);
+        console.log(result);
+        return result;
+    }
+
+    async withdrawAmount(request){
+        let caller = request.from;
+        let instance = await this.getContractInstance();
+        let amount = this.web3.utils.toWei(request.amount.toString(), "ether");
+        return await instance.withdrawalFund(amount, {from: caller});
     }
 }

@@ -54,25 +54,37 @@ contract FlightSuretyData {
     mapping(address => uint) addressToFunds;
 
 
-    /********************************************************************************************/
-    /*                                       EVENT DEFINITIONS                                  */
-    /********************************************************************************************/
-
-
     /**
     * @dev Constructor
     *      The deploying account becomes contractOwner
     */
     constructor()
     public
+    payable
     {
         contractOwner = msg.sender;
-        // authorizedCallers[contractOwner] = true;
+        authorizedCallers[address(this)] = true;
+        authorizedCallers[contractOwner] = true;
+
+        _registerAirline(contractOwner, contractOwner);
     }
+    /********************************************************************************************/
+    /*                                       EVENT DEFINITIONS                                  */
+    /********************************************************************************************/
+
+    event ContractModeChanged(bool isOperational);
+    event NewAirlineAdded(uint id, address airlineAddress);
+    event NewFlightAdded(uint id, string flightCode);
+    event NewInsuranceAdded(uint id, uint fligthId, address owner);
+    event AddedCreditToFund(uint insuranceId, address passengerAddress);
+    event FundWithDrawal(address owner, uint amount);
+    event FlightDepartureUpdated(uint id, uint8 status);
 
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
     /********************************************************************************************/
+
+// region Modifiers
     modifier requireIsOperational()
     {
         require(operational, "Contract is currently not operational");
@@ -81,7 +93,7 @@ contract FlightSuretyData {
 
     modifier requireAuthorization()
     {
-        require(authorizedCallers[msg.sender], "You are not authorized!");
+        require(authorizedCallers[msg.sender], "You are not authorized porra!");
         _;
     }
 
@@ -104,7 +116,7 @@ contract FlightSuretyData {
     modifier requireAirlineOperable(address airlineAddress)
     {
         require (
-                airlines[airlineAddress].wallet > minAirlineWallet &&
+                // airlines[airlineAddress].wallet > minAirlineWallet &&
                 airlines[airlineAddress].isAccepted,
                 "The Airline has not the minimum amount on ether to operate");
         _;
@@ -178,26 +190,27 @@ contract FlightSuretyData {
         require(!airlines[candidate].isAccepted, "The airline has already been accepted!");
         _;
     }
-    /********************************************************************************************/
-    /*                                            EVENTS                                        */
-    /********************************************************************************************/
 
-    event ContractModeChanged(bool isOperational);
-    event NewAirlineAdded(uint id, address airlineAddress);
-    event NewFlightAdded(uint id, string flightCode);
-    event NewInsuranceAdded(uint id, string flightCode, address owner);
-    event AmountAddedToInsuree(uint insuranceId, address passengerAddress);
-    event AmountWithdrawnToInsuree(address owner, uint amount);
-    event FlightDepartureUpdated(uint id, uint8 status);
+    modifier requireNotRegistered(
+        string flightCode,
+        uint departureTimestamp,
+        address airlineAddress
+    ) {
+        bytes32 key = getFlightKey(flightCode, departureTimestamp, airlineAddress);
+        require(flightKeyToId[key] == 0, "The flight has already been created!");
+        _;
+    }
+// endregion
 
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
 
+// region Utilities
     function isOperational()
-                            public
-                            view
-                            returns(bool)
+    public
+    view
+    returns(bool)
     {
         return operational;
     }
@@ -215,50 +228,110 @@ contract FlightSuretyData {
         emit ContractModeChanged(mode);
     }
 
+    function setAuthorizedCaller(
+        address caller,
+        bool auth
+    )
+    public
+    requireContractOwner
+    {
+        authorizedCallers[caller] = auth;
+    }
+// endregion
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
-
-   /**
-    * @dev Add an airline to the registration queue
-    *      Can only be called from FlightSuretyApp contract
-    *
-    */
+// region Airline
     function registerAirline
     (
         address candidate,
         address promoter
     )
     external
+    requireAirlines(promoter)
+    {
+        _registerAirline(candidate, promoter);
+    }
+
+    function _registerAirline
+    (
+        address candidate,
+        address promoter
+    )
+    internal
     requireIsOperational
     requireAuthorization
-    requireAirlines(promoter)
     requireAirlineNotRegistered(candidate)
     {
         countAirlines++;
 
         airlines[candidate].id = countAirlines;
-        airlines[candidate].wallet = 0;
-        airlines[candidate].isAccepted = countAirlines >= minAirlineConsensus;
+        airlines[candidate].wallet = 100;
+        airlines[candidate].isAccepted = true;
         airlines[candidate].votes.push(airlines[promoter].id);
 
-        // return countAirlines;
-        // emit NewAirlineAdded(countAirlines, candidate);
+        emit NewAirlineAdded(countAirlines, candidate);
     }
 
+    // function voteAirlineToOperate (
+    //     address candidate,
+    //     address voter
+    // )
+    // internal
+    // requireIsOperational
+    // requireAuthorization
+    // requireAirlines(voter)
+    // requireAirlines(candidate)
+    // requireCandidate(candidate)
+    // requireNotVoteYet(candidate, voter)
+    // {
+    //     uint id = airlines[voter].id;
+    //     airlines[candidate].votes.push(id);
+
+    //     uint newId = airlines[candidate].id;
+    //     uint lenVotes = airlines[candidate].votes.length;
+
+    //     //50% de aprovacao
+
+    //         airlines[candidate].isAccepted = true;
+    //     }
+
+    //     // return airlines[candidate].isAccepted;
+    // }
+
+    // function getAirlineData
+    // (
+    //     address airline
+    // )
+    // external
+    // requireIsOperational
+    // requireAuthorization
+    // pure
+    // returns (uint id, address[] votes, uint8 count)
+    // {
+    //     id = airlines[airline].id;
+    //     votes = airlines[airline].votes;
+    //     count = countAirlines;
+    // }
+
+// endregion
+
+// region Flight
     function registerFlight(
-        string memory flightCode,
-        address airlineAddress,
-        uint departureTimestamp
+        string flightCode,
+        uint departureTimestamp,
+        address airlineAddress
     )
     public
     requireIsOperational
     requireAuthorization
     requireAirlineOperable(airlineAddress)
     requireFligthOnTime(departureTimestamp)
+    requireNotRegistered(flightCode, departureTimestamp, airlineAddress)
     {
         countFlights++;
-        bytes32 key = getFlightKey(airlineAddress, flightCode, departureTimestamp);
+        bytes32 key = getFlightKey(flightCode, departureTimestamp, airlineAddress);
 
         flights[countFlights].id = countFlights;
         flights[countFlights].key = key;
@@ -268,10 +341,78 @@ contract FlightSuretyData {
 
         flightKeyToId[key] = countFlights;
 
-        // return countFlights;
-        // emit NewFlightAdded(id, flightCode);
+        emit NewFlightAdded(countFlights, flightCode);
     }
 
+    function getFlightId
+    (
+        string flightCode,
+        uint256 departureTimestamp,
+        address airlineAddress
+    )
+    public
+    requireIsOperational
+    requireAuthorization
+    view
+    returns(uint)
+    {
+        bytes32 key = getFlightKey(flightCode, departureTimestamp, airlineAddress);
+        return flightKeyToId[key];
+    }
+
+    function getFlightKey
+    (
+        string flightCode,
+        uint256 departureTimestamp,
+        address airlineAddress
+    )
+    public
+    requireIsOperational
+    requireAuthorization
+    view
+    returns(bytes32)
+    {
+        return keccak256(abi.encodePacked(airlineAddress, flightCode, departureTimestamp));
+    }
+
+    function getFlightIdByKey(bytes32 _key)
+    external
+    requireIsOperational
+    requireAuthorization
+    requireFligth(flightKeyToId[_key])
+    view
+    returns (uint)
+    {
+        return flightKeyToId[_key];
+    }
+
+    function getFlight(
+        uint id
+    )
+    external
+    requireIsOperational
+    requireAuthorization
+    requireFligth(id)
+    view
+    returns (
+        bytes32 key,
+        address airlineAddress,
+        string flightCode,
+        uint8 departureStatusCode,
+        uint departureTimestamp,
+        uint updatedTimestamp
+    )
+    {
+        key = flights[id].key;
+        airlineAddress = flights[id].airlineAddress;
+        flightCode = flights[id].flightCode;
+        departureStatusCode = flights[id].departureStatusCode;
+        departureTimestamp = flights[id].departureTimestamp;
+        updatedTimestamp = flights[id].updatedTimestamp;
+    }
+// endregion
+
+// region Insurance
     /**
     * @dev Buy insurance for a flight
     *
@@ -297,10 +438,46 @@ contract FlightSuretyData {
             state: InsuranceState.Sleeping
         });
 
-        // return countInsurance;
-        // emit NewInsuranceAdded(countInsurance, _flightCode, _owner);
+        emit NewInsuranceAdded(countInsurance, _flightId, _owner);
     }
 
+    function getInsurance(uint _id)
+    public
+    requireIsOperational
+    requireAuthorization
+    requireInsurance(_id)
+    view
+    returns (uint flightId, string state, uint amountPaid, address owner)
+    {
+        Insurance memory insurance = insurances[_id];
+        flightId = insurance.flightId;
+        amountPaid = insurance.amountPaid;
+        owner = insurance.passenger;
+        if(uint(insurance.state) == 0) {
+            state = "Sleeping";
+        }
+        if(uint(insurance.state) == 1) {
+            state = "Expired";
+        }
+        if(uint(insurance.state) == 2) {
+            state = "Credited";
+        }
+    }
+
+    function getInsurancesByFlight
+    (uint _id)
+    public
+    requireIsOperational
+    requireAuthorization
+    requireFligth(_id)
+    view
+    returns (uint[] listInsurances)
+    {
+        listInsurances = flightToInsurances[_id];
+    }
+// endregion
+
+// region User Fund
     /**
      *  @dev Credits payouts to insurees
     */
@@ -318,51 +495,38 @@ contract FlightSuretyData {
         Insurance memory i = insurances[insuranceId];
         addressToFunds[i.passenger].add(amount);
         insurances[insuranceId].state = InsuranceState.Refunded;
-        // emit AmountAddedToInsuree(insuranceId, passengerAddress);
+
+        emit AddedCreditToFund(insuranceId, i.passenger);
     }
 
-
-    function withdrawInsurees
+    function withdrawalFund
     (
-        uint _amountToWithdraw,
-        address _address
+        uint amount,
+        address owner
     )
     public
     requireIsOperational
     requireAuthorization
-    requirePassengerFunds(_address, _amountToWithdraw)
-    requireContractFunds(_amountToWithdraw)
+    requirePassengerFunds(owner, amount)
+    requireContractFunds(amount)
     payable
     {
-        addressToFunds[_address] = addressToFunds[_address].sub(_amountToWithdraw);
-        _address.transfer(_amountToWithdraw);
-        // emit AmountWithdrawnToInsuree(_address, _amountToWithdraw);
+        addressToFunds[owner] = addressToFunds[owner].sub(amount);
+        owner.transfer(amount);
+
+        emit FundWithDrawal(owner, amount);
     }
 
-
-    function getInsurance(uint _id)
+    function getFundBalance (address owner)
     public
     requireIsOperational
     requireAuthorization
-    requireInsurance(_id)
     view
-    returns (uint id, uint flightId, string memory state, uint amountPaid, address owner)
+    returns (uint)
     {
-        Insurance memory insurance = insurances[_id];
-        id = insurance.id;
-        flightId = insurance.flightId;
-        amountPaid = insurance.amountPaid;
-        owner = insurance.passenger;
-        if(uint(insurance.state) == 0) {
-            state = "Sleeping";
-        }
-        if(uint(insurance.state) == 1) {
-            state = "Expired";
-        }
-        if(uint(insurance.state) == 2) {
-            state = "Credited";
-        }
+        return addressToFunds[owner];
     }
+// endregion User Fund
 
 //     /**
 //      *  @dev Transfers eligible payout funds to insuree
@@ -391,20 +555,7 @@ contract FlightSuretyData {
 //     {
 //     }
 
-    function getFlightKey
-    (
-        address airline,
-        string flight,
-        uint256 timestamp
-    )
-    public
-    requireIsOperational
-    requireAuthorization
-    view
-    returns(bytes32)
-    {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
-    }
+
 
 //     /**
 //     * @dev Fallback function for funding smart contract.
@@ -416,47 +567,31 @@ contract FlightSuretyData {
 //     {
 //         fund();
 //     }
-    function getFlightIdByKey(bytes32 _key) external
-    requireIsOperational
-    requireFligth(flightKeyToId[_key])
-    view
-    returns (uint)
-    {
-        return flightKeyToId[_key];
-    }
 
-    function flightDepartureUpdate
-    (uint _id, uint8 _statusCode)
-    public
-    requireIsOperational
-    requireFligth(_id)
-    {
-        flights[_id].departureStatusCode = _statusCode;
-        flights[_id].updatedTimestamp = now;
-        emit FlightDepartureUpdated(_id, _statusCode);
-    }
 
-    function getInsurancesByFlight
-    (uint _id)
-    public
-    requireIsOperational
-    requireFligth(_id)
-    view
-    returns (uint[] listInsurances)
-    {
-        listInsurances = flightToInsurances[_id];
-    }
+    // function flightDepartureUpdate
+    // (uint _id, uint8 _statusCode)
+    // public
+    // requireIsOperational
+    // requireFligth(_id)
+    // {
+    //     flights[_id].departureStatusCode = _statusCode;
+    //     flights[_id].updatedTimestamp = now;
+    //     emit FlightDepartureUpdated(_id, _statusCode);
+    // }
 
-    // Credited Amount Resource
-    function getCreditedAmount
-    (address _address)
-    public
-    requireIsOperational
-    view
-    returns (uint amountCredited)
-    {
-        amountCredited = addressToFunds[_address];
-    }
+
+
+    // // Credited Amount Resource
+    // function getCreditedAmount
+    // (address _address)
+    // public
+    // requireIsOperational
+    // view
+    // returns (uint amountCredited)
+    // {
+    //     amountCredited = addressToFunds[_address];
+    // }
 
     //mine
     // function getAirline

@@ -28,6 +28,8 @@ contract FlightSuretyApp {
 
     uint8 private insurancePremiumNumerator = 3;
     uint8 private insurancePremiumDenominator = 2;
+    uint8 private minAirlineWallet = 10;
+    uint8 private minAirlineConsensus = 4;
 
     address private contractOwner;          // Account used to deploy contract
 
@@ -71,15 +73,10 @@ contract FlightSuretyApp {
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
-
-    /**
-    * @dev Contract constructor
-    *
-    */
     constructor(address dataContractAddress)
     public
+    payable
     {
-        contractOwner = msg.sender;
         dataContract = FlightSuretyData(dataContractAddress);
     }
 
@@ -139,6 +136,7 @@ contract FlightSuretyApp {
     //     // return airlines[candidate].isAccepted;
     // }
 
+// region Flight
    /**
     * @dev Register a future flight for insuring.
     *
@@ -150,9 +148,40 @@ contract FlightSuretyApp {
     )
     external
     {
-        dataContract.registerFlight(flightCode, msg.sender, departureTimestamp);
+        dataContract.registerFlight(flightCode, departureTimestamp, msg.sender);
     }
 
+    function getFlight(
+        uint id
+    )
+    external
+    view
+    returns (
+        bytes32 key,
+        address airlineAddress,
+        string flightCode,
+        uint8 departureStatusCode,
+        uint departureTimestamp,
+        uint updatedTimestamp
+    )
+    {
+        (key, airlineAddress, flightCode, departureStatusCode, departureTimestamp, updatedTimestamp) = dataContract.getFlight(id);
+    }
+
+    function getFlightId
+    (
+        string flightCode,
+        uint256 departureTimestamp,
+        address airlineAddress
+    )
+    public
+    view
+    returns (uint)
+    {
+        return dataContract.getFlightId(flightCode, departureTimestamp, airlineAddress);
+    }
+// endregion Flight
+// region Insurance
     function buyInsurance(
         uint flightId
     )
@@ -163,14 +192,40 @@ contract FlightSuretyApp {
         dataContract.registerInsurance(flightId, msg.sender, msg.value);
     }
 
-    function withdrawCredit
-    (uint amount)
+    function getInsurance(
+        uint id
+    )
+    external
+    requireIsOperational
+    view
+    returns(
+        uint flightId,
+        string state,
+        uint amountPaid,
+        address owner
+    )
+    {
+        (flightId, state, amountPaid, owner) = dataContract.getInsurance(id);
+    }
+
+    function getFundBalance(address _address)
+    public
+    requireIsOperational
+    view
+    returns (uint)
+    {
+        return dataContract.getFundBalance(_address);
+    }
+
+    function withdrawalFund(uint amount)
     public
     requireIsOperational
     payable
     {
-        dataContract.withdrawInsurees(amount, msg.sender);
+        dataContract.withdrawalFund(amount, msg.sender);
     }
+// endregion Insurance
+
 
    /**
     * @dev Called after oracle has updated flight status
@@ -185,43 +240,29 @@ contract FlightSuretyApp {
     )
     internal
     {
-        bytes32 flightKey = dataContract.getFlightKey(airline, flight, timestamp);
+        bytes32 flightKey = dataContract.getFlightKey(flight, timestamp, airline);
         (uint flightId) = dataContract.getFlightIdByKey(flightKey);
-        dataContract.flightDepartureUpdate(flightId, statusCode);
+        // dataContract.flightDepartureUpdate(flightId, statusCode);
         // if(statusCode != STATUS_CODE_UNKNOWN) {
         //     dataContract.setUnavailableForInsurance(flightId);
         // }
         if(statusCode == STATUS_CODE_LATE_AIRLINE) {
             uint[] memory insurancesToCredit = dataContract.getInsurancesByFlight(flightId);
             for(uint i = 0; i < insurancesToCredit.length; i++){
-                (, , , uint amountPaid, ) = dataContract.getInsurance(insurancesToCredit[i]);
+                (, , uint amountPaid, ) = dataContract.getInsurance(insurancesToCredit[i]);
                 dataContract.creditInsurees(insurancesToCredit[i], amountPaid.mul(insurancePremiumNumerator).div(insurancePremiumDenominator));
             }
         }
     }
 
-
-    function getCreditedAmount
-    (address _address)
-    public
-    requireIsOperational
-    view
-    returns (uint)
-    {
-        return dataContract.getCreditedAmount(_address);
-    }
-
-
-
-
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus
-                        (
-                            address airline,
-                            string flight,
-                            uint256 timestamp
-                        )
-                        external
+    (
+        address airline,
+        string flight,
+        uint256 timestamp
+    )
+    external
     {
         uint8 index = getRandomIndex(msg.sender);
 
@@ -234,8 +275,6 @@ contract FlightSuretyApp {
 
         emit OracleRequest(index, airline, flight, timestamp);
     }
-
-
 // region ORACLE MANAGEMENT
 
     // Incremented to add pseudo-randomness at various points
@@ -301,8 +340,8 @@ contract FlightSuretyApp {
     function getMyIndexes
                             (
                             )
-                            view
                             external
+                            view
                             returns(uint8[3])
     {
         require(oracles[msg.sender].isRegistered, "Not registered as an oracle");
@@ -327,7 +366,10 @@ contract FlightSuretyApp {
                         )
                         external
     {
-        require((oracles[msg.sender].indexes[0] == index) || (oracles[msg.sender].indexes[1] == index) || (oracles[msg.sender].indexes[2] == index), "Index does not match oracle request");
+        require((oracles[msg.sender].indexes[0] == index) ||
+        (oracles[msg.sender].indexes[1] == index) ||
+        (oracles[msg.sender].indexes[2] == index),
+        "Index does not match oracle request");
 
 
         bytes32 key = keccak256(abi.encodePacked(index, airline, flight, timestamp));
@@ -345,20 +387,6 @@ contract FlightSuretyApp {
             // Handle flight status as appropriate
             processFlightStatus(airline, flight, timestamp, statusCode);
         }
-    }
-
-
-    function getFlightKey
-                        (
-                            address airline,
-                            string flight,
-                            uint256 timestamp
-                        )
-                        pure
-                        internal
-                        returns(bytes32)
-    {
-        return keccak256(abi.encodePacked(airline, flight, timestamp));
     }
 
     // Returns array of three non-duplicating integers from 0-9

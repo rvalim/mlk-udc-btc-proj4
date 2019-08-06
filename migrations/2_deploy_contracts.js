@@ -16,7 +16,7 @@ module.exports = function(deployer, network, accounts) {
         .then(deployer => {
         return FlightSuretyData.deployed();
         }).then(dataInstance => {
-            return dataInstance.setIsAuthorizedCaller(FlightSuretyApp.address, true);
+            return dataInstance.setAuthorizedCaller(FlightSuretyApp.address, true);
         }).then(result => {
             let config = {
                 localhost: {
