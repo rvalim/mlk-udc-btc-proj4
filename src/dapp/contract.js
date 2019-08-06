@@ -66,6 +66,12 @@ export default class Contract {
         let caller = request.from;
         console.log(caller)
         let instance = await this.getContractInstance();
+        return await instance.voteToFly(request.airline, {from: caller});
+    }
+    async voteToFly(request) {
+        let caller = request.from;
+        console.log(caller)
+        let instance = await this.getContractInstance();
         return await instance.registerAirline(request.airline, {from: caller});
     }
     async getFlightId(request){

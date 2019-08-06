@@ -30,6 +30,7 @@ contract FlightSuretyApp {
     uint8 private insurancePremiumDenominator = 2;
     uint8 private minAirlineWallet = 10;
     uint8 private minAirlineConsensus = 4;
+    uint8 private consensusAdjust = 2;
 
     address private contractOwner;          // Account used to deploy contract
 
@@ -96,7 +97,7 @@ contract FlightSuretyApp {
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
 
-
+// region Airlines
    /**
     * @dev Add an airline to the registration queue
     *
@@ -110,31 +111,23 @@ contract FlightSuretyApp {
         dataContract.registerAirline(_address, msg.sender);
     }
 
-    // function voteAirlineToOperate (
-    //     address candidate,
-    //     address voter
-    // )
-    // internal
-    // requireIsOperational
-    // requireAuthorization
-    // requireAirlines(voter)
-    // requireAirlines(candidate)
-    // requireCandidate(candidate)
-    // requireNotVoteYet(candidate, voter)
-    // {
-    //     uint id = airlines[voter].id;
-    //     airlines[candidate].votes.push(id);
+    function voteToFly
+    (
+        address _address
+    )
+    public
+    {
+        dataContract.registerAirline(_address, msg.sender);
 
-    //     uint newId = airlines[candidate].id;
-    //     uint lenVotes = airlines[candidate].votes.length;
+        (uint id, uint[] memory votes, ) = dataContract.getAirlineData(_address);
 
-    //     //50% de aprovacao
+        if (id < minAirlineConsensus)
+            dataContract.activateAirline(_address);
+        else if (votes.length > (id / consensusAdjust))
+            dataContract.activateAirline(_address);
+    }
 
-    //         airlines[candidate].isAccepted = true;
-    //     }
-
-    //     // return airlines[candidate].isAccepted;
-    // }
+// endregion Airlines
 
 // region Flight
    /**
@@ -147,6 +140,7 @@ contract FlightSuretyApp {
         uint departureTimestamp
     )
     external
+    requireIsOperational
     {
         dataContract.registerFlight(flightCode, departureTimestamp, msg.sender);
     }
@@ -155,6 +149,7 @@ contract FlightSuretyApp {
         uint id
     )
     external
+    requireIsOperational
     view
     returns (
         bytes32 key,
@@ -175,12 +170,14 @@ contract FlightSuretyApp {
         address airlineAddress
     )
     public
+    requireIsOperational
     view
     returns (uint)
     {
         return dataContract.getFlightId(flightCode, departureTimestamp, airlineAddress);
     }
 // endregion Flight
+
 // region Insurance
     function buyInsurance(
         uint flightId
@@ -226,7 +223,6 @@ contract FlightSuretyApp {
     }
 // endregion Insurance
 
-
    /**
     * @dev Called after oracle has updated flight status
     *
@@ -263,6 +259,7 @@ contract FlightSuretyApp {
         uint256 timestamp
     )
     external
+    requireIsOperational
     {
         uint8 index = getRandomIndex(msg.sender);
 
@@ -275,6 +272,7 @@ contract FlightSuretyApp {
 
         emit OracleRequest(index, airline, flight, timestamp);
     }
+
 // region ORACLE MANAGEMENT
 
     // Incremented to add pseudo-randomness at various points

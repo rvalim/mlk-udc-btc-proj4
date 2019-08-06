@@ -74,7 +74,9 @@ contract FlightSuretyData {
 
     event ContractModeChanged(bool isOperational);
     event NewAirlineAdded(uint id, address airlineAddress);
+    event NewVoteForAirline(uint id, uint howMany);
     event NewFlightAdded(uint id, string flightCode);
+    event AirlineAcceptedByMembers(uint id);
     event NewInsuranceAdded(uint id, uint fligthId, address owner);
     event AddedCreditToFund(uint insuranceId, address passengerAddress);
     event FundWithDrawal(address owner, uint amount);
@@ -192,7 +194,7 @@ contract FlightSuretyData {
     }
 
     modifier requireNotRegistered(
-        string flightCode,
+        string memory flightCode,
         uint departureTimestamp,
         address airlineAddress
     ) {
@@ -268,58 +270,65 @@ contract FlightSuretyData {
 
         airlines[candidate].id = countAirlines;
         airlines[candidate].wallet = 100;
-        airlines[candidate].isAccepted = true;
+        airlines[candidate].isAccepted = (countAirlines < minAirlineConsensus);
         airlines[candidate].votes.push(airlines[promoter].id);
 
         emit NewAirlineAdded(countAirlines, candidate);
     }
 
-    // function voteAirlineToOperate (
-    //     address candidate,
-    //     address voter
-    // )
-    // internal
-    // requireIsOperational
-    // requireAuthorization
+    function voteAirlineToOperate (
+        address candidate,
+        address voter
+    )
+    public
+    requireIsOperational
+    requireAuthorization
     // requireAirlines(voter)
     // requireAirlines(candidate)
     // requireCandidate(candidate)
     // requireNotVoteYet(candidate, voter)
-    // {
-    //     uint id = airlines[voter].id;
-    //     airlines[candidate].votes.push(id);
+    {
+        uint id = airlines[voter].id;
+        airlines[candidate].votes.push(id);
 
-    //     uint newId = airlines[candidate].id;
-    //     uint lenVotes = airlines[candidate].votes.length;
+        uint lenVotes = airlines[candidate].votes.length;
 
-    //     //50% de aprovacao
+        emit NewVoteForAirline(airlines[candidate].id, lenVotes);
+    }
 
-    //         airlines[candidate].isAccepted = true;
-    //     }
+    function activateAirline(
+        address candidate
+    )
+    public
+    requireIsOperational
+    requireAuthorization
+    requireAirlines(candidate)
+    requireCandidate(candidate)
+    {
+        airlines[candidate].isAccepted = true;
+        emit AirlineAcceptedByMembers(airlines[candidate].id);
+    }
 
-    //     // return airlines[candidate].isAccepted;
-    // }
-
-    // function getAirlineData
-    // (
-    //     address airline
-    // )
-    // external
-    // requireIsOperational
-    // requireAuthorization
-    // pure
-    // returns (uint id, address[] votes, uint8 count)
-    // {
-    //     id = airlines[airline].id;
-    //     votes = airlines[airline].votes;
-    //     count = countAirlines;
-    // }
+    function getAirlineData
+    (
+        address airline
+    )
+    external
+    requireIsOperational
+    requireAuthorization
+    view
+    returns (uint id, uint[] memory votes, bool isAccepted)
+    {
+        id = airlines[airline].id;
+        votes = airlines[airline].votes;
+        isAccepted = airlines[airline].isAccepted;
+    }
 
 // endregion
 
 // region Flight
     function registerFlight(
-        string flightCode,
+        string memory flightCode,
         uint departureTimestamp,
         address airlineAddress
     )

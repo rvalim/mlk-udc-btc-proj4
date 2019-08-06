@@ -10,6 +10,25 @@ import './flightsurety.css';
 
     let contract = new Contract('localhost', () => {
 
+        // contract.OracleRequest(function (err, result) {
+        //     if (err) {
+        //         return error(err);
+        //     }
+
+        //     log("OracleRequest: " + result.args.who);
+        //     getCount();
+        //     });
+
+        // contract.OracleReport(function (err, result) {
+        //     if (err) {
+        //         return error(err);
+        //     }
+
+        //     log("OracleReport: " + result.args.who);
+        //     getCount();
+        // });
+
+
         // Read transaction
         let navs = ["contract-resource", "airlines-resource", "flights-resource", "insurances-resource", "funds-resource"].map(item=>{
             return DOM.elid(item);
@@ -72,6 +91,31 @@ import './flightsurety.css';
             }
         });
 
+        DOM.elid("airline-candidate").addEventListener("click", async () => {
+            let airlineAddress = DOM.elid("airline-candidate-address");
+            let from = DOM.elid("airline-candidate-register-from");
+            let request = {
+                airline: airlineAddress.value,
+                from: from.value
+            };
+            let err, result, label
+            try {
+                await contract.voteToFly(request);
+                label = "Success";
+                result = "Airline is registered";
+            } catch(e){
+                console.log(e);
+                label = "Failure";
+                err = e;
+            } finally {
+                display(
+                    "Register Airline",
+                    "Registers new airline in the system, but does not allow it to vote without registration fee paid",
+                    [{label: label, error: err, value: result}]
+                )
+            }
+        });
+
         DOM.elid("register-flight").addEventListener("click", async ()=>{
             let request = {
                 flight: DOM.elid("register-flight-flight-code").value,
@@ -119,6 +163,9 @@ import './flightsurety.css';
                 flight: DOM.elid("register-flight-flight-code").value,
                 departure: new Date(DOM.elid("register-flight-departure").value).valueOf()/1000
             };
+
+            counter = web3.eth.contract(abi).at(address);
+
             let err, result;
             try {
                 result = await contract.fetchFlightStatus(request);
