@@ -91,6 +91,30 @@ import './flightsurety.css';
             }
         });
 
+        DOM.elid("airline-get").addEventListener("click", async () => {
+            let airlineAddress = DOM.elid("airline-address");
+            let request = {
+                airline: airlineAddress.value,
+            };
+            let err, result, label
+            try {
+                result = await contract.getAirlane(request);
+                result = [
+                    { label: "Id", error: err, value: result.id },
+                    { label: "Votes", error: err, value: result.votes },
+                    { label: "isAccepted", error: err, value: result.isAccepted }
+                ];
+            } catch(e){
+                result = [ { label: "Failure", error: e, value: `Flight do not exists`} ]
+            } finally {
+                display(
+                    "Get Airlane",
+                    "Get Airlane",
+                    result
+                )
+            }
+        });
+
         DOM.elid("airline-candidate").addEventListener("click", async () => {
             let airlineAddress = DOM.elid("airline-candidate-address");
             let from = DOM.elid("airline-candidate-register-from");
@@ -102,15 +126,40 @@ import './flightsurety.css';
             try {
                 await contract.voteToFly(request);
                 label = "Success";
-                result = "Airline is registered";
+                result = "Vote registered";
             } catch(e){
                 console.log(e);
                 label = "Failure";
                 err = e;
             } finally {
                 display(
-                    "Register Airline",
-                    "Registers new airline in the system, but does not allow it to vote without registration fee paid",
+                    "Vote to Fly",
+                    "Multi parti for airline",
+                    [{label: label, error: err, value: result}]
+                )
+            }
+        });
+
+        DOM.elid("airline-fund").addEventListener("click", async () => {
+            let airlineAddress = DOM.elid("airline-fund-address");
+            let value = DOM.elid("airline-fund-value");
+            let request = {
+                from: airlineAddress.value,
+                value: value.value
+            };
+            let err, result, label
+            try {
+                await contract.depositFundToOperate(request);
+                label = "Success";
+                result = "Deposit was funded";
+            } catch(e){
+                console.log(e);
+                label = "Failure";
+                err = e;
+            } finally {
+                display(
+                    "Deposit Fund",
+                    "Something happend!",
                     [{label: label, error: err, value: result}]
                 )
             }

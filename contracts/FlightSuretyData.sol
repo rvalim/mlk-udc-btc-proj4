@@ -7,7 +7,7 @@ contract FlightSuretyData {
 
     struct Airline {
         uint id;
-        uint wallet;
+        bool fundPaid;
         bool isAccepted;
         uint[] votes;
     }
@@ -39,8 +39,6 @@ contract FlightSuretyData {
     uint countInsurance = 0;
     address contractOwner;                                      // Account used to deploy contract
     bool operational = true;                                    // Blocks all state changes throughout the contract if false
-    uint minAirlineWallet = 10;
-    uint minAirlineConsensus = 4;
     // uint minAirlinePercentageApproval = 0.50;
 
 
@@ -66,7 +64,10 @@ contract FlightSuretyData {
         authorizedCallers[address(this)] = true;
         authorizedCallers[contractOwner] = true;
 
+        //Register contract owner as ailine, activate and make the first deposit
         _registerAirline(contractOwner, contractOwner);
+        activateAirline(contractOwner);
+        payRegistrationFee(contractOwner);
     }
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -81,6 +82,7 @@ contract FlightSuretyData {
     event AddedCreditToFund(uint insuranceId, address passengerAddress);
     event FundWithDrawal(address owner, uint amount);
     event FlightDepartureUpdated(uint id, uint8 status);
+    event AirlineFundCredit(uint id);
 
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -117,8 +119,7 @@ contract FlightSuretyData {
 
     modifier requireAirlineOperable(address airlineAddress)
     {
-        require (
-                // airlines[airlineAddress].wallet > minAirlineWallet &&
+        require (airlines[airlineAddress].fundPaid &&
                 airlines[airlineAddress].isAccepted,
                 "The Airline has not the minimum amount on ether to operate");
         _;
@@ -193,6 +194,11 @@ contract FlightSuretyData {
         _;
     }
 
+    modifier requireElegible(address airline) {
+        require(airlines[airline].isAccepted, "The airline need to be voted!");
+        _;
+    }
+
     modifier requireNotRegistered(
         string memory flightCode,
         uint departureTimestamp,
@@ -252,8 +258,9 @@ contract FlightSuretyData {
     )
     external
     requireAirlines(promoter)
+    returns(uint)
     {
-        _registerAirline(candidate, promoter);
+        return _registerAirline(candidate, promoter);
     }
 
     function _registerAirline
@@ -265,15 +272,17 @@ contract FlightSuretyData {
     requireIsOperational
     requireAuthorization
     requireAirlineNotRegistered(candidate)
+    returns(uint)
     {
         countAirlines++;
 
         airlines[candidate].id = countAirlines;
-        airlines[candidate].wallet = 100;
-        airlines[candidate].isAccepted = (countAirlines < minAirlineConsensus);
+        //airlines[candidate].isAccepted = (countAirlines < minAirlineConsensus);
         airlines[candidate].votes.push(airlines[promoter].id);
 
         emit NewAirlineAdded(countAirlines, candidate);
+
+        return countAirlines;
     }
 
     function voteAirlineToOperate (
@@ -283,10 +292,10 @@ contract FlightSuretyData {
     public
     requireIsOperational
     requireAuthorization
-    // requireAirlines(voter)
-    // requireAirlines(candidate)
-    // requireCandidate(candidate)
-    // requireNotVoteYet(candidate, voter)
+    requireCandidate(candidate)
+    requireAirlines(voter)
+    requireAirlineOperable(voter)
+    requireNotVoteYet(candidate, voter)
     {
         uint id = airlines[voter].id;
         airlines[candidate].votes.push(id);
@@ -302,7 +311,6 @@ contract FlightSuretyData {
     public
     requireIsOperational
     requireAuthorization
-    requireAirlines(candidate)
     requireCandidate(candidate)
     {
         airlines[candidate].isAccepted = true;
@@ -316,6 +324,7 @@ contract FlightSuretyData {
     external
     requireIsOperational
     requireAuthorization
+    requireAirlines(airline)
     view
     returns (uint id, uint[] memory votes, bool isAccepted)
     {
@@ -324,6 +333,31 @@ contract FlightSuretyData {
         isAccepted = airlines[airline].isAccepted;
     }
 
+   /**
+    * @dev Initial funding for the insurance. Unless there are too many delayed flights
+    *      resulting in insurance payouts, the contract should be self-sustaining
+    *
+    */
+    function payRegistrationFee
+    (
+        address owner
+    )
+    public
+    requireIsOperational
+    requireAuthorization
+    requireElegible(owner)
+    payable
+    {
+        // address payable addr = make_payable(owner);
+        // addr.transfer(msg.value);
+        airlines[owner].fundPaid = true;
+
+        emit AirlineFundCredit(airlines[owner].id);
+    }
+
+//     function make_payable(address x) internal pure returns (address payable) {
+//       return address(uint160(x));
+//    }
 // endregion
 
 // region Flight
@@ -355,7 +389,7 @@ contract FlightSuretyData {
 
     function getFlightId
     (
-        string flightCode,
+        string memory flightCode,
         uint256 departureTimestamp,
         address airlineAddress
     )
@@ -371,7 +405,7 @@ contract FlightSuretyData {
 
     function getFlightKey
     (
-        string flightCode,
+        string memory flightCode,
         uint256 departureTimestamp,
         address airlineAddress
     )
@@ -406,7 +440,7 @@ contract FlightSuretyData {
     returns (
         bytes32 key,
         address airlineAddress,
-        string flightCode,
+        string memory flightCode,
         uint8 departureStatusCode,
         uint departureTimestamp,
         uint updatedTimestamp
@@ -429,23 +463,26 @@ contract FlightSuretyData {
     function registerInsurance
     (
         uint _flightId,
-        address _owner,
-        uint _value
+        address _owner
     )
     public
     requireIsOperational
     requireAuthorization
     requireFligth(_flightId)
     requireFligthOnTime(_flightId)
+    payable
     {
         countInsurance++;
         insurances[countInsurance] = Insurance({
             id: countInsurance,
             flightId: _flightId,
-            amountPaid: _value,
+            amountPaid: msg.value,
             passenger: _owner,
             state: InsuranceState.Sleeping
         });
+
+        // address payable addr = make_payable(_owner);
+        // addr.transfer(msg.value);
 
         emit NewInsuranceAdded(countInsurance, _flightId, _owner);
     }
@@ -456,7 +493,7 @@ contract FlightSuretyData {
     requireAuthorization
     requireInsurance(_id)
     view
-    returns (uint flightId, string state, uint amountPaid, address owner)
+    returns (uint flightId, string memory state, uint amountPaid, address owner)
     {
         Insurance memory insurance = insurances[_id];
         flightId = insurance.flightId;
@@ -473,14 +510,13 @@ contract FlightSuretyData {
         }
     }
 
-    function getInsurancesByFlight
-    (uint _id)
+    function getInsurancesByFlight(uint _id)
     public
     requireIsOperational
     requireAuthorization
     requireFligth(_id)
     view
-    returns (uint[] listInsurances)
+    returns (uint[] memory listInsurances)
     {
         listInsurances = flightToInsurances[_id];
     }
@@ -537,34 +573,15 @@ contract FlightSuretyData {
     }
 // endregion User Fund
 
-//     /**
-//      *  @dev Transfers eligible payout funds to insuree
-//      *
-//     */
-//     function pay
-//                             (
-//                             )
-//     public
-//     requireIsOperational
-//     requireAuthorization
-//     {
-//     }
-
-//    /**
-//     * @dev Initial funding for the insurance. Unless there are too many delayed flights
-//     *      resulting in insurance payouts, the contract should be self-sustaining
-//     *
-//     */
-//     function fund
-//                             (
-//                             )
-//     public
-//     requireIsOperational
-//     requireAuthorization
-//     {
-//     }
-
-
+    /**
+     *  @dev Transfers eligible payout funds to insuree
+     *
+    */
+    function pay(uint amount)
+    internal
+    {
+        address(this).transfer(amount);
+    }
 
 //     /**
 //     * @dev Fallback function for funding smart contract.
@@ -589,31 +606,5 @@ contract FlightSuretyData {
     //     emit FlightDepartureUpdated(_id, _statusCode);
     // }
 
-
-
-    // // Credited Amount Resource
-    // function getCreditedAmount
-    // (address _address)
-    // public
-    // requireIsOperational
-    // view
-    // returns (uint amountCredited)
-    // {
-    //     amountCredited = addressToFunds[_address];
-    // }
-
-    //mine
-    // function getAirline
-    // (address airlineAddress)
-    // public
-    // requireIsOperational
-    // requireFligth(_id)
-    // view
-    // returns (uint id, bool isAccepted, uint[] votes)
-    // {
-    //     id = airlines[airlineAddress].id;
-    //     isAccepted = airlines[airlineAddress].isAccepted;
-    //     votes = airlines[airlineAddress].votes;
-    // }
 }
 

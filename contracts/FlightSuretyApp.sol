@@ -28,6 +28,7 @@ contract FlightSuretyApp {
 
     uint8 private insurancePremiumNumerator = 3;
     uint8 private insurancePremiumDenominator = 2;
+    uint8 private maxInsuranceValue = 1;
     uint8 private minAirlineWallet = 10;
     uint8 private minAirlineConsensus = 4;
     uint8 private consensusAdjust = 2;
@@ -71,6 +72,31 @@ contract FlightSuretyApp {
         _;
     }
 
+    modifier requireFundBalance()
+    {
+        require(msg.sender.balance >= msg.value, "Airline has no fund.");
+        _;
+    }
+
+    modifier requireMinimumFund()
+    {
+        require(msg.value >= minAirlineWallet, "The minimum fund is 10 ether.");
+        _;
+    }
+
+    modifier requireInsurancePrice()
+    {
+        require(msg.value > 0 && msg.value < maxInsuranceValue, "The offer must respect 0 < value >= 1.");
+        _;
+    }
+
+    modifier returnChangeForExcessToSender(uint requiredAmount)
+    {
+        _;
+        uint change = msg.value.sub(requiredAmount);
+        msg.sender.transfer(change);
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -107,8 +133,13 @@ contract FlightSuretyApp {
         address _address
     )
     public
+    requireIsOperational
     {
-        dataContract.registerAirline(_address, msg.sender);
+        uint id = dataContract.registerAirline(_address, msg.sender);
+
+        if (id <= minAirlineConsensus) {
+            dataContract.activateAirline(_address);
+        }
     }
 
     function voteToFly
@@ -116,17 +147,39 @@ contract FlightSuretyApp {
         address _address
     )
     public
+    requireIsOperational
     {
-        dataContract.registerAirline(_address, msg.sender);
+        dataContract.voteAirlineToOperate(_address, msg.sender);
 
         (uint id, uint[] memory votes, ) = dataContract.getAirlineData(_address);
 
-        if (id < minAirlineConsensus)
+        if (votes.length >= (id / consensusAdjust)) {
             dataContract.activateAirline(_address);
-        else if (votes.length > (id / consensusAdjust))
-            dataContract.activateAirline(_address);
+        }
     }
 
+    function depositFundToOperate()
+    public
+    payable
+    requireIsOperational
+    // requireFundBalance
+    // requireMinimumFund
+    // returnChangeForExcessToSender(msg.value)
+    {
+        dataContract.payRegistrationFee.value(msg.value)(msg.sender);
+    }
+
+    function getAirline
+    (
+        address airline
+    )
+    external
+    requireIsOperational
+    view
+    returns (uint id, uint[] memory votes, bool isAccepted)
+    {
+        (id, votes, isAccepted) = dataContract.getAirlineData(airline);
+    }
 // endregion Airlines
 
 // region Flight
@@ -163,6 +216,8 @@ contract FlightSuretyApp {
         (key, airlineAddress, flightCode, departureStatusCode, departureTimestamp, updatedTimestamp) = dataContract.getFlight(id);
     }
 
+
+
     function getFlightId
     (
         string flightCode,
@@ -184,9 +239,10 @@ contract FlightSuretyApp {
     )
     external
     requireIsOperational
+    // requireInsurancePrice
     payable
     {
-        dataContract.registerInsurance(flightId, msg.sender, msg.value);
+        dataContract.registerInsurance.value(msg.value)(flightId, msg.sender);
     }
 
     function getInsurance(

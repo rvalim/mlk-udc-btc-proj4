@@ -63,16 +63,32 @@ export default class Contract {
         await instance.fetchFlightStatus(request.airline, request.flight, request.departure, {from: caller});
     }
     async registerAirline(request) {
-        let caller = request.from;
+        let caller = request.from || this.owner;
         console.log(caller)
         let instance = await this.getContractInstance();
-        return await instance.voteToFly(request.airline, {from: caller});
+        return await instance.registerAirline(request.airline, {from: caller});
+    }
+    async getAirlane(request) {
+        let caller = request.from || this.owner;
+        console.log(caller)
+        let instance = await this.getContractInstance();
+        return await instance.getAirline(request.airline, {from: caller});
     }
     async voteToFly(request) {
         let caller = request.from;
         console.log(caller)
         let instance = await this.getContractInstance();
-        return await instance.registerAirline(request.airline, {from: caller});
+        return await instance.voteToFly(request.airline, {from: caller});
+    }
+    async depositFundToOperate(request) {
+        let from = request.from;
+        let value = this.web3.utils.toWei(request.value.toString(), "ether");
+        let instance = await this.getContractInstance();
+        console.log(request, { from, value })
+        let gasEstimateUnits = await instance.depositFundToOperate.estimateGas({ from, value });
+        console.log(gasEstimateUnits);
+        console.log(value);
+        return await instance.depositFundToOperate({ from, value });
     }
     async getFlightId(request){
         let caller = request.airlineAddress;
