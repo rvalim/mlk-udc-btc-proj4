@@ -24,8 +24,8 @@ module.exports = function (accounts, web3){
                 try {
                     await testCall.apply(this, args);
                 } catch (e) {
-                    // console.log(e.message);
                     try {
+                        console.log(`$######################${e.message}##########################${e.message.includes(errorMessage)} ---- ${errorMessage}`)
                         assert.equal(e.message.includes(errorMessage), true, "Unexpected error message");
                     } catch (err) {
                         console.log(e);

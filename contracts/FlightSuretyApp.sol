@@ -47,7 +47,7 @@ contract FlightSuretyApp {
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
     /********************************************************************************************/
-
+// region Modifiers
     // Modifiers help avoid duplication of code. They are typically used to validate something
     // before a function is allowed to be executed.
 
@@ -96,7 +96,7 @@ contract FlightSuretyApp {
         uint change = msg.value.sub(requiredAmount);
         msg.sender.transfer(change);
     }
-
+// endregion Modifiers
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -119,12 +119,19 @@ contract FlightSuretyApp {
         return dataContract.isOperational();
     }
 
+    function setOperatingStatus(bool mode)
+    public
+    view
+    {
+        dataContract.setOperatingStatus(mode);
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
 
 // region Airlines
-   /**
+    /**
     * @dev Add an airline to the registration queue
     *
     */
@@ -215,8 +222,6 @@ contract FlightSuretyApp {
     {
         (key, airlineAddress, flightCode, departureStatusCode, departureTimestamp, updatedTimestamp) = dataContract.getFlight(id);
     }
-
-
 
     function getFlightId
     (

@@ -349,7 +349,7 @@ contract FlightSuretyData {
     payable
     {
         // address payable addr = make_payable(owner);
-        // addr.transfer(msg.value);
+        address(this).transfer(msg.value);
         airlines[owner].fundPaid = true;
 
         emit AirlineFundCredit(airlines[owner].id);
@@ -583,16 +583,15 @@ contract FlightSuretyData {
         address(this).transfer(amount);
     }
 
-//     /**
-//     * @dev Fallback function for funding smart contract.
-//     *
-//     */
-//     function()
-//                             external
-//                             payable
-//     {
-//         fund();
-//     }
+    /**
+    * @dev Fallback function for funding smart contract.
+    *
+    */
+    function()
+    external
+    payable
+    {
+    }
 
 
     // function flightDepartureUpdate
