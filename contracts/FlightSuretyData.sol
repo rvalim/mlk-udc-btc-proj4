@@ -75,14 +75,14 @@ contract FlightSuretyData {
 
     event ContractModeChanged(bool isOperational);
     event NewAirlineAdded(uint id, address airlineAddress);
-    event NewVoteForAirline(uint id, uint howMany);
     event NewFlightAdded(uint id, string flightCode);
-    event AirlineAcceptedByMembers(uint id);
     event NewInsuranceAdded(uint id, uint fligthId, address owner);
-    event AddedCreditToFund(uint insuranceId, address passengerAddress);
-    event FundWithDrawal(address owner, uint amount);
+    event NewVoteForAirline(uint id, uint howMany);
+    event AirlineAcceptedByMembers(uint id);
+    event AirlineRegistrationFeePayed(uint id);
+    event PassengerFundCredited(uint insuranceId, address passengerAddress);
+    event PassengerFundWithDrawal(address owner, uint amount);
     event FlightDepartureUpdated(uint id, uint8 status);
-    event AirlineFundCredit(uint id);
 
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -352,7 +352,7 @@ contract FlightSuretyData {
         address(this).transfer(msg.value);
         airlines[owner].fundPaid = true;
 
-        emit AirlineFundCredit(airlines[owner].id);
+        emit AirlineRegistrationFeePayed(airlines[owner].id);
     }
 
 //     function make_payable(address x) internal pure returns (address payable) {
@@ -541,7 +541,7 @@ contract FlightSuretyData {
         addressToFunds[i.passenger].add(amount);
         insurances[insuranceId].state = InsuranceState.Refunded;
 
-        emit AddedCreditToFund(insuranceId, i.passenger);
+        emit PassengerFundCredited(insuranceId, i.passenger);
     }
 
     function withdrawalFund
@@ -559,7 +559,7 @@ contract FlightSuretyData {
         addressToFunds[owner] = addressToFunds[owner].sub(amount);
         owner.transfer(amount);
 
-        emit FundWithDrawal(owner, amount);
+        emit PassengerFundWithDrawal(owner, amount);
     }
 
     function getFundBalance (address owner)

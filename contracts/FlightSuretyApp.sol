@@ -28,10 +28,10 @@ contract FlightSuretyApp {
 
     uint8 private insurancePremiumNumerator = 3;
     uint8 private insurancePremiumDenominator = 2;
-    uint8 private maxInsuranceValue = 1;
-    uint8 private minAirlineWallet = 10;
     uint8 private minAirlineConsensus = 4;
     uint8 private consensusAdjust = 2;
+    uint private maxInsuranceValue = 1 ether;
+    uint private minAirlineWallet = 10 ether;
 
     address private contractOwner;          // Account used to deploy contract
 
@@ -86,7 +86,7 @@ contract FlightSuretyApp {
 
     modifier requireInsurancePrice()
     {
-        require(msg.value > 0 && msg.value < maxInsuranceValue, "The offer must respect 0 < value >= 1.");
+        require(msg.value > 0 && msg.value <= maxInsuranceValue, "The offer must respect 0 < value <= 1.");
         _;
     }
 
@@ -121,7 +121,6 @@ contract FlightSuretyApp {
 
     function setOperatingStatus(bool mode)
     public
-    view
     {
         dataContract.setOperatingStatus(mode);
     }
@@ -169,8 +168,8 @@ contract FlightSuretyApp {
     public
     payable
     requireIsOperational
-    // requireFundBalance
-    // requireMinimumFund
+    requireFundBalance
+    requireMinimumFund
     // returnChangeForExcessToSender(msg.value)
     {
         dataContract.payRegistrationFee.value(msg.value)(msg.sender);
@@ -214,7 +213,7 @@ contract FlightSuretyApp {
     returns (
         bytes32 key,
         address airlineAddress,
-        string flightCode,
+        string memory flightCode,
         uint8 departureStatusCode,
         uint departureTimestamp,
         uint updatedTimestamp
@@ -244,7 +243,7 @@ contract FlightSuretyApp {
     )
     external
     requireIsOperational
-    // requireInsurancePrice
+    requireInsurancePrice
     payable
     {
         dataContract.registerInsurance.value(msg.value)(flightId, msg.sender);
