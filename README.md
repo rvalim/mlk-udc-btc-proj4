@@ -1,129 +1,72 @@
+
 # Flight Surety
-## How to run
-### System Requirements
-1. Node v10.15.3
-2. Ganache CLI v6.4.3 (ganache-core: 2.5.5)
-3. Solidity 0.4.24
-4. Truffle v5.0.11 (core: 5.0.11)
-5. Solidity - 0.4.24 (solc-js)
-6. Web3.js v1.0.0-beta.37
 
-### Setup
-#### Obtain the code
-1. Downwload and unzip this repo to a folder on your machine.
-2. Open Terminal in this folder
-3. Run:
-```bash
-npm install
-```
 
-#### Start Ganache
-You will need specific configuration of ganache. So run:
-```bash
-ganache-cli -l 999999999999 -m "candy maplcake sugar puddi cream honey rich smooth crumble sweet treat" -e 10000 -a 30
-```
-This command will create the local test network with the following props:
-1. gas limit = 999999999999
-2. test accounts = 30
-3. ether on each test account = 10000
 
-#### Migrate contracts to ganache
-Specific configuration of test network is configured in truffle under the `development_cli` alias.
+## Getting Started
 
-So, you need to migrate the contract to this specific network. Hence, run in the project folder:
-```bash
-truffle migrate --network development_cli
-```
+The proposal of this document is to guide you over this project.
 
-#### Start Oracle Server
-Now server depends on `truffle-contract` npm package, so you need to install it. 
+### Technical References
 
-But if you just run `npm install` inside `./src/server`  folder, it will fail.
+First of all you have to install somethings. =D
 
-So first go ahead and open your node modules
-```bash
-cd ./node_modules
-```
-Then remove 
-```bash
-rm -rf web3-providers-ws
-```
+*  [Truffle](https://www.npmjs.com/package/truffle): v5.0.22 - Development environment, testing framework and asset pipeline for Ethereum
+*  [Ganache CLI](https://www.npmjs.com/package/ganache-cli): v6.4.4 - Uses ethereumjs to simulate full client behavior and make developing Ethereum applications faster, easier, and safer
+*  [Metamask](https://metamask.io/): v6.7.2 - It allows you to run Ethereum dApps right in your browser without running a full Ethereum node
+*  [Solidity](https://solidity.readthedocs.io): >=0.4.24 - Ethereum language for writing Smart Contracts
+*  [Node](https://nodejs.org): v12.6.0 - JavaScript runtime
+*  [Web3.js](https://web3js.readthedocs.io): v1.0.0-beta.37 - A collection of libraries which allow you to interact with a local or remote Ethereum node, using an HTTP, WebSocket or IPC connection
+*  [truffle-hdwallet-provider](https://www.npmjs.com/package/truffle-hdwallet-provider): v1.0.14 - Use it to sign transactions for addresses derived from a 12 or 24 word mnemonic.
 
-Now, go up to you project folder again.
 
-To start oracle server, you will have to change the folder in the Terminal first:
-```bash
-cd ./src/server
-```
-And install the `truffle-contract`
-```bash
-npm install
-```
+### Running Solution
 
-And start the server as normal Node.js process:
-```bash
-node server.js
-```
+You will nedd three terminals:
 
-#### Start Dapp
-Dapp that will allow you to interact with deployed contracts will be server for you on `localhost:8000`.
-In the project folder run:
-```bash
-npm run dapp
-```
+ - Terminal 1:
+	 -  `ganache-cli -l 999999999999 -m "candy maplcake sugar puddi cream honey rich smooth crumble sweet treat" -e 10000 -a 30`: To start Ganache with specific Wallets
+ - Terminal 2 - On the root folder run:
+	 - `npm i`: To install all the dependencies
+	 - `truffle migrate --network development_cli`: To apply the contrats to the network
+	 - `npm run dapp`: To start the web site at *locallhost:8000*
+ - Terminal 3 - On the root folder run:
+	 - `npm run server`: It will start the Oracles server
 
-__At this point you have set up the system locally, and you are good to go with tests and interactions with UI.__
+### Running Tests
 
-__CAUTION! After you run automatic tests, please tear down the local system and set it up again for interaction with UI.__
+You will need two terminals:
 
-To set everything up again, run in the project folder
-```bash
-> ganache-cli -l 999999999999 -m "candy maplcake sugar puddi cream honey rich smooth crumble sweet treat" -e 10000 -a 30
-> truffle migrate --network development_cli
-> cd ./src/server
-> node server.js
-> cd ../..
-> npm run dapp
-```
-Now open the `locallhost:8000` in your browser.
+ - Terminal 1:
+	 -  `ganache-cli -l 999999999999 -m "candy maplcake sugar puddi cream honey rich smooth crumble sweet treat" -e 10000 -a 30`: To start Ganache with specific Wallets
+ - Terminal 2 - On the root folder run:
+	 - `truffle migrate --network development_cli`: To apply the contrats to the network
+	 - `truffle test --network development_cli`: To test the hole application
 
-### Run tests
-__IMPORTANT!__ You need to run the test files as described below. Otherwise, tests may fail due to bugs in the truffle/ganache.
 
-___Please, find yourself in the project folder again.___
+### The web site
 
-1. Run unit tests for Flight Surety Data Contract
-```bash
-truffle test test/FlightSuretyDataTest.js --network development_cli
-```
+The text above will give you an idea of how to use the web site.
 
-2. Run unit tests for Flight Surety App Contract
-```bash
-truffle test test/FlightSuretyAppTest.js --network development_cli
-```
+#### The contract
+Used to check if it is all ok and running, note the Results up on the right, this area is used by the others screens to present answers to the user.
 
-3. Run integration tests for Oracle App with FlightSurety
-```bash
-truffle test test/OracleTest.js --network development_cli
-```
+![Contracts](./images/01_contract.PNG)
 
-### Interact with UI
-The Dapp has four sections: Contract, Airlines, Flights and Insurances.
+#### The Airline
+Here you can register, vote and deposit funds to an Airline. If you get any errors they wiil be shown on the results area
+![Airlines](./images/02_airline.PNG)
 
-Sections contain forms for the specific resource in the system.
+#### The Flights
+Note you can register and get flight Id here, the flight id will be used to register new insurances.
+The refresh button is not working, and should trigger the Oracles, if they work. Sorry about that.
+![Flights](./images/03_flights.PNG)
 
-Outcome of each form request outputs to Results section.
+#### The Insurance
+Where you can buy new insurances, note that the flight Id will be needed.
+![Insurances](./images/04_insurance.PNG)
 
-__IMPORTANT!__ 
+#### The Funds
+By this screen the user can verify his Fund's Balance and make a withdraw.
 
-When you try to search the Flight or Insurance in `Get Flight`/ `Get Insurance` forms, you need to use
-the __Id__ of the flight or insurance. 
-
-Ids are integers, starting with 1. 
-
-So if you have created two insurances in the network,
-and you want to search for the first one, then use `1` as Insurance Id in the `Get Insurance` form. 
-
-Same applies to `Buy Insurance`. You need to use integer id of the flight. For first flight in the system the id will be `1`.
-
-P.S. Sorry for all that.
+![Fund](./images/05_fund.PNG)
