@@ -35,15 +35,6 @@ contract FlightSuretyApp {
 
     address private contractOwner;          // Account used to deploy contract
 
-    struct Flight {
-        bool isRegistered;
-        uint8 statusCode;
-        uint256 updatedTimestamp;
-        address airline;
-    }
-    mapping(bytes32 => Flight) private flights;
-
-
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
     /********************************************************************************************/
@@ -290,7 +281,7 @@ contract FlightSuretyApp {
     function processFlightStatus
     (
         address airline,
-        string flight,
+        string memory flight,
         uint256 timestamp,
         uint8 statusCode
     )
@@ -298,10 +289,9 @@ contract FlightSuretyApp {
     {
         bytes32 flightKey = dataContract.getFlightKey(flight, timestamp, airline);
         (uint flightId) = dataContract.getFlightIdByKey(flightKey);
-        // dataContract.flightDepartureUpdate(flightId, statusCode);
-        // if(statusCode != STATUS_CODE_UNKNOWN) {
-        //     dataContract.setUnavailableForInsurance(flightId);
-        // }
+
+        dataContract.setFlightDepartureCode(flightId, statusCode);
+
         if(statusCode == STATUS_CODE_LATE_AIRLINE) {
             uint[] memory insurancesToCredit = dataContract.getInsurancesByFlight(flightId);
             for(uint i = 0; i < insurancesToCredit.length; i++){

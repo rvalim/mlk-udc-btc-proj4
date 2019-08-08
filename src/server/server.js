@@ -2,10 +2,9 @@ const fs = require("fs");
 const Web3 = require("web3");
 const OracleApp = require("./OracleApp");
 const TruffleContract = require("truffle-contract");
-const express = require("express");
 
-let FlightSuretyApp = JSON.parse(fs.readFileSync('../../build/contracts/FlightSuretyApp.json'));
-let Config = JSON.parse(fs.readFileSync("./config.json"));
+let FlightSuretyApp = JSON.parse(fs.readFileSync('./build/contracts/FlightSuretyApp.json'));
+let Config = JSON.parse(fs.readFileSync("./src/server/config.json"));
 let config = Config['localhost'];
 let web3Provider = new Web3.providers.WebsocketProvider(config.url.replace('http', 'ws'));
 // web3.eth.defaultAccount = web3.eth.accounts[0];
@@ -30,6 +29,7 @@ flightSuretyApp.setProvider(web3Provider);
     instance
         .OracleRequest()
         .on("data", async event => {
+            console.log('event');
             let flightStatusRequest = {
                 index: event.returnValues.index,
                 airline: event.returnValues.airline,
@@ -42,33 +42,7 @@ flightSuretyApp.setProvider(web3Provider);
                 flightStatusResponses = await oracleApp.getFlightStatus(flightStatusRequest);
             } catch (e) {
                 console.log(e);
-            }import FlightSuretyApp from '../../build/contracts/FlightSuretyApp.json';
-            import Config from './config.json';
-            import Web3 from 'web3';
-            import express from 'express';
-
-
-            let config = Config['localhost'];
-            let web3 = new Web3(new Web3.providers.WebsocketProvider(config.url.replace('http', 'ws')));
-            web3.eth.defaultAccount = web3.eth.accounts[0];
-            let flightSuretyApp = new web3.eth.Contract(FlightSuretyApp.abi, config.appAddress);
-
-
-            flightSuretyApp.events.OracleRequest({
-                fromBlock: 0
-              }, function (error, event) {
-                if (error) console.log(error)
-                console.log(event)
-            });
-
-            const app = express();
-            app.get('/api', (req, res) => {
-                res.send({
-                  message: 'An API for use with your Dapp!'
-                })
-            })
-
-            export default app;
+            }
 
             console.log(flightStatusResponses);
             flightStatusResponses.forEach(async response => {

@@ -213,7 +213,7 @@ import './flightsurety.css';
                 departure: new Date(DOM.elid("register-flight-departure").value).valueOf()/1000
             };
 
-            counter = web3.eth.contract(abi).at(address);
+            // counter = web3.eth.contract(abi).at(address);
 
             let err, result;
             try {

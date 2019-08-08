@@ -453,6 +453,21 @@ contract FlightSuretyData {
         departureTimestamp = flights[id].departureTimestamp;
         updatedTimestamp = flights[id].updatedTimestamp;
     }
+
+    function setFlightDepartureCode(
+        uint id,
+        uint8 statusCode
+    )
+    external
+    requireIsOperational
+    requireAuthorization
+    requireFligth(id)
+    {
+        flights[id].departureStatusCode = statusCode;
+        flights[id].updatedTimestamp = now;
+
+        emit FlightDepartureUpdated(id, statusCode);
+    }
 // endregion
 
 // region Insurance
@@ -481,8 +496,9 @@ contract FlightSuretyData {
             state: InsuranceState.Sleeping
         });
 
-        // address payable addr = make_payable(_owner);
-        // addr.transfer(msg.value);
+        flightToInsurances[_flightId].push(countInsurance);
+
+        //address(this).transfer(msg.value);
 
         emit NewInsuranceAdded(countInsurance, _flightId, _owner);
     }

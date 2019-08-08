@@ -44,6 +44,7 @@ export default class Contract {
 
     async getOperationalStatus(request) {
         let self = this;
+        console.log(self.owner);
         let caller = request.from || self.owner;
         let instance = await this.getContractInstance();
         return await instance.isOperational({from: caller});
