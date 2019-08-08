@@ -4,7 +4,8 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-/dapp/
+src/dapp/config.json
+src/server/config.json
 prod/
 
 # Runtime data
