@@ -2,7 +2,7 @@ const FlightSuretyData = artifacts.require("FlightSuretyData");
 const FlightSuretyApp = artifacts.require("FlightSuretyApp");
 
 contract("Flight Surety App Tests", async accounts => {
-    let helper = require("./TestConstants")(accounts, web3);
+    let helper = require("./helper")(accounts, web3);
     let flightSuretyDataContract, flightSuretyAppContract;
 
     beforeEach(async () => {
