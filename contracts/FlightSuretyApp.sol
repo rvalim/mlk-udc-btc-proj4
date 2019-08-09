@@ -256,13 +256,13 @@ contract FlightSuretyApp {
         (flightId, state, amountPaid, owner) = dataContract.getInsurance(id);
     }
 
-    function getFundBalance(address _address)
+    function getFundBalance()
     public
     requireIsOperational
     view
     returns (uint)
     {
-        return dataContract.getFundBalance(_address);
+        return dataContract.getFundBalance(msg.sender);
     }
 
     function withdrawalFund(uint amount)
@@ -273,6 +273,7 @@ contract FlightSuretyApp {
         dataContract.withdrawalFund(amount, msg.sender);
     }
 // endregion Insurance
+
 
    /**
     * @dev Called after oracle has updated flight status
@@ -299,6 +300,8 @@ contract FlightSuretyApp {
                 dataContract.creditInsurees(insurancesToCredit[i], amountPaid.mul(insurancePremiumNumerator).div(insurancePremiumDenominator));
             }
         }
+
+
     }
 
     // Generate a request for oracles to fetch flight information

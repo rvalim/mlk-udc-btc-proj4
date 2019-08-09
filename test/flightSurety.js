@@ -305,4 +305,37 @@ contract("Flight Surety App Tests", async accounts => {
         });
     });
 
+    describe("About Oracles", async function () {
+        let flightId = 0;
+        let parameters = [helper.flightOne.flight, helper.flightOne.departure, { from: helper.secondAirline }];
+        let parameters1 = [helper.flightOne.flight, helper.flightOne.departure, helper.secondAirline];
+
+
+        beforeEach(async () => {
+            // //Creating 2 Airline
+            await flightSuretyAppContract.registerAirline(helper.secondAirline, { from: helper.contractOwner });
+            await flightSuretyAppContract.depositFundToOperate({ from: helper.secondAirline, value: helper.toWei(10) });
+            flightId = await flightSuretyAppContract.registerFlight(...parameters);
+
+        });
+
+        describe("Success cases", async function () {
+            it("Can receive Insurance", async function () {
+
+                flightSuretyDataContract.NewInsuranceAdded().on("data", async event => {
+                    const insurance = await flightSuretyAppContract.Debug().on("data", async event => {
+                        helper.contractOwner,
+                        helper.flightOne.flight,
+                        helper.flightOne.departure,
+                        20,
+                        { from: helper.contractOwner });
+
+                    const result = await flightSuretyAppContract.getFundBalance({from: helper.whomever});
+                    console.log('getFundBalance', result);
+                    }, {flightSuretyAppContract});
+
+                await flightSuretyAppContract.buyInsurance(1, { from: helper.whomever, value: helper.toWei(0.75) });
+            });
+        });
+    });
 });

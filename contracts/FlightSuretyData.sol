@@ -554,7 +554,7 @@ contract FlightSuretyData {
     requireInsuranceState(insuranceId, InsuranceState.Sleeping)
     {
         Insurance memory i = insurances[insuranceId];
-        addressToFunds[i.passenger].add(amount);
+        addressToFunds[i.passenger] = addressToFunds[i.passenger].add(amount);
         insurances[insuranceId].state = InsuranceState.Refunded;
 
         emit PassengerFundCredited(insuranceId, i.passenger);
